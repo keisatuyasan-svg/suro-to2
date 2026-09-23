@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0d0b1e" />
+<title>竜宮スロット × KaroPay</title>
+<style>
+  :root {
+    --bg: #0d0b1e;
+    --panel: #1a1638;
+    --panel2: #241e4d;
+    --line: #3b3378;
+    --ink: #f4f1ff;
+    --muted: #9e97d0;
+    --gold: #ffcf4a;
+    --red: #ff4a6b;
+    --teal: #2ee6c4;
+    --blue: #5b8cff;
+    --purple: #b06bff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(1200px 700px at 50% -10%, #2a1f6b 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    min-width: 320px;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; gap: 12px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    background: rgba(13, 11, 30, .7);
+    backdrop-filter: blur(6px);
+  }
+  .brand { font-weight: 800; letter-spacing: .04em; font-size: 18px; }
+  .brand small { color: var(--muted); font-weight: 500; margin-left: 6px; font-size: 12px; }
+  .wallet { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chip {
+    background: var(--panel2); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 14px;
+  }
+  .chip b { color: var(--gold); font-size: 16px; }
+  button {
+    font: inherit; color: inherit; cursor: pointer; border: 0;
+  }
+  .btn {
+    background: linear-gradient(180deg, #7b5cff, #5236e0);
+    padding: 8px 14px; border-radius: 10px; font-weight: 700; font-size: 14px;
+    box-shadow: 0 4px 0 #2f1d99;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #2f1d99; }
+  .btn.ghost { background: var(--panel2); box-shadow: 0 4px 0 #14102e; border: 1px solid var(--line); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  main { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+         grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { main { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; } }
+
+  .machine {
+    background: linear-gradient(180deg, var(--panel), #120f2b);
+    border: 2px solid var(--line); border-radius: 20px; padding: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 0 40px rgba(123, 92, 255, .12);
+  }
+  .jackpot {
+    text-align: center; padding: 10px; margin-bottom: 12px; border-radius: 12px;
+    background: linear-gradient(90deg, #4a2a00, #7a4a00, #4a2a00);
+    border: 1px solid #b8862a; color: var(--gold); font-weight: 800; letter-spacing: .06em;
+  }
+  .jackpot span { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .reels {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    background: #07051a; padding: 12px; border-radius: 14px; border: 2px solid #000;
+    box-shadow: inset 0 0 30px rgba(0,0,0,.8);
+    position: relative;
+  }
+  .reel {
+    height: 168px; overflow: hidden; border-radius: 10px; position: relative;
+    background: linear-gradient(180deg, #16123a, #0b0925, #16123a);
+    border: 1px solid var(--line);
+  }
+  .reel::before, .reel::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 40px; z-index: 2; pointer-events: none;
+  }
+  .reel::before { top: 0; background: linear-gradient(180deg, rgba(0,0,0,.65), transparent); }
+  .reel::after { bottom: 0; background: linear-gradient(0deg, rgba(0,0,0,.65), transparent); }
+  .strip { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+  .cell {
+    height: 56px; display: flex; align-items: center; justify-content: center;
+    font-size: 38px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  }
+  .payline {
+    position: absolute; left: 6px; right: 6px; top: 50%; height: 56px; transform: translateY(-50%);
+    border: 2px solid rgba(255, 207, 74, .75); border-radius: 10px; pointer-events: none;
+    box-shadow: 0 0 16px rgba(255, 207, 74, .35); z-index: 3;
+  }
+  .reels.win .payline { animation: pulse .5s ease-in-out 6; }
+  @keyframes pulse { 50% { box-shadow: 0 0 30px rgba(255, 207, 74, 1); border-color: #fff; } }
+  .reels.shake { animation: shake .4s; }
+  @keyframes shake { 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+
+  .message {
+    min-height: 54px; margin: 12px 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-weight: 700; font-size: 16px; padding: 6px 10px; border-radius: 12px;
+    background: rgba(255,255,255,.04);
+  }
+  .message.big { color: var(--gold); font-size: 20px; }
+  .message.near { color: var(--red); }
+
+  .controls { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: stretch; }
+  .bet { display: flex; flex-direction: column; gap: 6px; }
+  .bet label { font-size: 12px; color: var(--muted); }
+  .bet-row { display: flex; gap: 6px; }
+  .bet-row button {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; font-weight: 700; min-width: 44px;
+  }
+  .bet-row button.active { background: var(--gold); color: #2a1a00; border-color: var(--gold); }
+  .spin {
+    background: linear-gradient(180deg, #ff5d7e, #d1123f); border-radius: 14px;
+    font-size: 24px; font-weight: 900; letter-spacing: .12em; padding: 14px;
+    box-shadow: 0 6px 0 #7a0925, 0 10px 24px rgba(255, 74, 107, .35);
+  }
+  .spin:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 3px 0 #7a0925; }
+  .spin:disabled { filter: grayscale(.6); opacity: .7; cursor: not-allowed; }
+  .sub { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .combo { color: var(--teal); font-weight: 800; }
+
+  aside { display: grid; gap: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px;
+  }
+  .card h2 { margin: 0 0 10px; font-size: 15px; letter-spacing: .06em; color: var(--muted); }
+  .paytable { display: grid; gap: 6px; font-size: 14px; }
+  .paytable div { display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,.03); }
+  .rar-COMMON { color: #c9c9d6; } .rar-RARE { color: var(--blue); }
+  .rar-EPIC { color: var(--purple); } .rar-LEGENDARY { color: var(--gold); }
+  .rar-MYTHIC { color: var(--red); text-shadow: 0 0 8px rgba(255,74,107,.6); }
+
+  .collection { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .slot-item {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border-radius: 10px; font-size: 26px; background: rgba(255,255,255,.04);
+    border: 1px solid var(--line);
+  }
+  .slot-item.locked { filter: grayscale(1) brightness(.35); }
+  .slot-item.RARE { border-color: var(--blue); } .slot-item.EPIC { border-color: var(--purple); }
+  .slot-item.LEGENDARY { border-color: var(--gold); } .slot-item.MYTHIC { border-color: var(--red); }
+  .progress { height: 8px; border-radius: 99px; background: rgba(255,255,255,.08); margin-top: 10px; overflow: hidden; }
+  .progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold)); width: 0; transition: width .4s; }
+
+  .log { font-size: 13px; color: var(--muted); max-height: 140px; overflow: auto; display: grid; gap: 4px; }
+  .log div b { color: var(--ink); }
+
+  /* modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(5, 4, 15, .8); display: none;
+    align-items: center; justify-content: center; padding: 16px; z-index: 50;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    width: min(520px, 100%); max-height: 92vh; overflow: auto; padding: 18px;
+  }
+  .modal h3 { margin: 0 0 6px; font-size: 20px; }
+  .notice {
+    font-size: 12px; line-height: 1.7; color: var(--muted); background: rgba(255,255,255,.04);
+    padding: 10px 12px; border-radius: 10px; margin: 10px 0; border-left: 3px solid var(--gold);
+  }
+  .notice b { color: var(--gold); }
+  .pack-grid { display: grid; gap: 8px; margin: 12px 0; }
+  .pack {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  }
+  .pack strong { font-size: 16px; }
+  .pack small { color: var(--muted); display: block; }
+  .pack .badge { color: var(--teal); font-size: 12px; font-weight: 700; }
+  .cfg { display: grid; gap: 8px; margin-top: 12px; }
+  .cfg label { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+  .cfg input {
+    background: #0b0925; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; font: inherit; font-size: 14px;
+  }
+  .status { font-size: 13px; min-height: 20px; margin-top: 8px; }
+  .status.error { color: var(--red); } .status.ready { color: var(--teal); }
+  .row-end { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+  .toast {
+    max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis;
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(30px);
+    background: #000c; border: 1px solid var(--gold); color: var(--gold); padding: 10px 18px;
+    border-radius: 999px; font-weight: 800; opacity: 0; transition: .3s; z-index: 60; pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+  .confetti i { position: absolute; top: -20px; width: 10px; height: 14px; opacity: .9;
+    animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">🐉 竜宮スロット<small>× KaroPay</small></div>
+  <div class="wallet">
+    <span class="chip">🪙 <b id="coins">0</b></span>
+    <button class="btn" id="btn-shop">コインを買う</button>
+    <button class="btn ghost" id="btn-cashout">💱 換金申請</button>
+  </div>
+</header>
+
+<main>
+  <section class="machine">
+    <div class="jackpot">👑 JACKPOT <span id="jackpot">0</span></div>
+    <div class="reels" id="reels">
+      <div class="reel"><div class="strip"></div></div>
+      <div class="reel"><div class="strip"></div></div>
+      <div class="reel"><div class="strip"></div></div>
+      <div class="payline"></div>
+    </div>
+    <div class="message" id="message">ベットしてSPINを押そう!</div>
+
+    <div class="controls">
+      <div class="bet">
+        <label>BET</label>
+        <div class="bet-row" id="bet-row"></div>
+      </div>
+      <button class="spin" id="spin">SPIN</button>
+    </div>
+    <div class="sub">
+      <span class="chip">COMBO <b id="combo">0</b></span>
+      <span class="combo" id="combo-bonus"></span>
+      <span style="flex:1"></span>
+      <button class="btn ghost" id="btn-sound">🔊 ON</button>
+    </div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>配当表(BET × 倍率)</h2>
+      <div class="paytable" id="paytable"></div>
+      <div class="notice" style="margin-bottom:0">2つ揃い=BETと同額が戻ります。左2つが同じで右が惜しい「ニアミス」はコンボが続きます。</div>
+    </div>
+    <div class="card">
+      <h2>図鑑コレクション <span id="col-count" style="float:right"></span></h2>
+      <div class="collection" id="collection"></div>
+      <div class="progress"><i id="col-bar"></i></div>
+    </div>
+    <div class="card">
+      <h2>履歴</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</main>
+
+<!-- shop modal -->
+<div class="modal-bg" id="shop-modal">
+  <div class="modal">
+    <h3>コインを購入</h3>
+    <div class="notice">
+      <b>ご注意:</b> コインは<b>ゲーム内で遊ぶためだけのポイント</b>です。現金や商品へ換金・払い戻しはできません。
+      スロットの結果で現実のお金が増減することはありません。購入は任意です。
+      このページは学習用のデモで、決済確認はブラウザ上の簡易チェックです(本番運用にはサーバー側の検証が必要です)。
+    </div>
+    <div class="pack-grid" id="packs"></div>
+    <div class="cfg">
+      <label>KaroPay URL
+        <input id="api-base" autocomplete="off" />
+      </label>
+      <label>サイト用コード
+        <input id="receive-code" autocomplete="off" placeholder="KaroPayで発行したコード" />
+      </label>
+    </div>
+    <div class="status" id="shop-status"></div>
+    <div class="row-end">
+      <button class="btn ghost" id="shop-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- cashout modal -->
+<div class="modal-bg" id="cashout-modal">
+  <div class="modal">
+    <h3>💱 コイン換金申請</h3>
+    <div class="notice">
+      換金レート:<b>1コイン = $<span id="cashout-rate-label"></span>(カロ$)</b><br>
+      ここで発行される換金コードは<b>申請の記録</b>です。実際のカロ$の送金は、運営が内容を確認したうえで
+      個別にお渡しします。コードは申請すると<b>その場でコイン数が減り</b>、一度しか使えません。<b>不正な手段で増やしたコインの
+      換金申請は、送金対象外・アカウント停止の対象になります。</b>
+    </div>
+    <div class="cfg">
+      <label>換金するコイン数<br><small style="color:var(--muted);font-weight:400">所持: <span id="cashout-balance">0</span>コイン</small>
+        <input id="cashout-amount" type="number" min="1" step="1" placeholder="例: 100" />
+      </label>
+      <div id="cashout-preview" style="font-size:13px;color:var(--teal);min-height:18px"></div>
+      <label>あなたのMinecraft名(かろEarth)
+        <input id="cashout-name" autocomplete="off" placeholder="例: karon_taro" />
+      </label>
+    </div>
+    <div class="status" id="cashout-status"></div>
+    <div class="row-end">
+      <button class="btn ghost" id="cashout-close">閉じる</button>
+      <button class="btn" id="cashout-submit">申請してコードを発行</button>
+    </div>
+
+    <h3 style="margin-top:18px; font-size:16px;">あなたの申請履歴</h3>
+    <div class="log" id="cashout-log" style="max-height:200px"></div>
+  </div>
+</div>
+
+<!-- admin modal (?admin=1 でのみ操作可能) -->
+<div class="modal-bg" id="admin-modal">
+  <div class="modal">
+    <h3>🛠 換金申請 管理画面</h3>
+    <div class="notice">
+      全プレイヤー共通の申請一覧です。カロ$を送金したら「処理済みにする」を押してください。<br>
+      <b>ご注意:</b> 所持コインはブラウザ側の値なので、プレイヤーが開発者ツールで書き換えて水増し申請することが可能です。
+      短時間に不自然な高額・多数の申請がないか、送金前に目視で確認してください。
+    </div>
+    <div class="status" id="admin-status"></div>
+    <div class="log" id="admin-log" style="max-height:400px"></div>
+    <div class="row-end">
+      <button class="btn ghost" id="admin-close">閉じる</button>
+      <button class="btn ghost" id="admin-refresh">再読み込み</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="confetti" id="confetti"></div>
+
+<script>
+/* ========== 設定 ========== */
+const SYMBOLS = [
+  { id: 'cherry', ch: '🍒', rar: 'COMMON',    w: 30, x3: 5,   name: 'チェリー' },
+  { id: 'shell',  ch: '🐚', rar: 'COMMON',    w: 26, x3: 8,   name: '貝殻' },
+  { id: 'fish',   ch: '🐟', rar: 'RARE',      w: 18, x3: 15,  name: '魚' },
+  { id: 'coral',  ch: '🪸', rar: 'RARE',      w: 12, x3: 25,  name: '珊瑚' },
+  { id: 'pearl',  ch: '🦪', rar: 'EPIC',      w: 8,  x3: 50,  name: '真珠貝' },
+  { id: 'turtle', ch: '🐢', rar: 'EPIC',      w: 5,  x3: 80,  name: '亀' },
+  { id: 'gem',    ch: '💎', rar: 'LEGENDARY', w: 3,  x3: 200, name: '宝玉' },
+  { id: 'dragon', ch: '🐉', rar: 'MYTHIC',    w: 1.5,x3: 0,   name: '竜神' } // 3つ揃い=ジャックポット
+];
+const BETS = [10, 50, 100, 500];
+const JP_BASE = 5000;
+const JP_RATE = 0.05;   // BETの5%がジャックポットに積み上がる
+const START_COINS = 0;
+const CELL_H = 56;
+
+const CASHOUT_RATE = 5; // 換金レート: 1コイン = $5(カロ$)
+const PACKS = [
+  { id: 'coin-s', coins: 100,  amount: 700,  label: 'スターター',  note: '' },
+  { id: 'coin-m', coins: 600,  amount: 3600, label: 'スタンダード', note: 'お得' },
+  { id: 'coin-l', coins: 1500, amount: 8250, label: 'プレミアム',  note: 'もっとお得' }
+];
+
+/* ========== 状態 ========== */
+const DEFAULT_API = 'https://karopay.karon.jp';
+const $ = id => document.getElementById(id);
+let state = load();
+let bet = BETS[1];
+let spinning = false;
+let sound = true;
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem('ryugu.state') || 'null');
+    if (s) return s;
+  } catch {}
+  return { coins: START_COINS, jackpot: JP_BASE, combo: 0, best: 0, owned: {}, spins: 0, credited: {} };
+}
+function save() { localStorage.setItem('ryugu.state', JSON.stringify(state)); }
+
+/* ========== 抽選 ========== */
+const totalW = SYMBOLS.reduce((a, s) => a + s.w, 0);
+function pick() {
+  let r = Math.random() * totalW;
+  for (const s of SYMBOLS) { if ((r -= s.w) < 0) return s; }
+  return SYMBOLS[0];
+}
+function judge(a, b, c, betAmt) {
+  if (a.id === b.id && b.id === c.id) {
+    if (a.id === 'dragon') return { type: 'jackpot', mult: 0 };
+    return { type: 'three', mult: a.x3, sym: a };
+  }
+  if (a.id === b.id || b.id === c.id || a.id === c.id) return { type: 'two', mult: 1 };
+  return { type: 'none', mult: 0 };
+}
+function nearMiss(a, b, c) {
+  return a.id === b.id && b.id !== c.id && SYMBOLS.indexOf(c) >= 0 && (b.rar === 'EPIC' || b.rar === 'LEGENDARY' || b.rar === 'MYTHIC');
+}
+
+/* ========== 描画 ========== */
+const reelEls = [...document.querySelectorAll('.strip')];
+const STRIP_LEN = 24;
+const reelSyms = [[], [], []];
+
+function buildStrip(i, finalSym) {
+  const strip = reelEls[i];
+  const list = [];
+  for (let k = 0; k < STRIP_LEN; k++) list.push(pick());
+  list[1] = finalSym;                  // 中段(ペイライン)に止める
+  reelSyms[i] = list;
+  strip.innerHTML = list.map(s => `<div class="cell">${s.ch}</div>`).join('');
+  strip.style.transition = 'none';
+  strip.style.transform = `translateY(${-(STRIP_LEN - 3) * CELL_H}px)`;
+}
+function initReels() {
+  for (let i = 0; i < 3; i++) buildStrip(i, pick());
+  for (let i = 0; i < 3; i++) reelEls[i].style.transform = 'translateY(0)';
+}
+function spinReel(i, finalSym, ms) {
+  return new Promise(res => {
+    const strip = reelEls[i];
+    buildStrip(i, finalSym);
+    void strip.offsetHeight;
+    strip.style.transition = `transform ${ms}ms cubic-bezier(.12,.6,.2,1)`;
+    strip.style.transform = 'translateY(0)';
+    setTimeout(() => { beep(320 + i * 90, .07, 'square'); res(); }, ms);
+  });
+}
+
+function renderAll() {
+  $('coins').textContent = state.coins.toLocaleString();
+  $('jackpot').textContent = Math.floor(state.jackpot).toLocaleString();
+  $('combo').textContent = state.combo;
+  const bonus = comboBonus();
+  $('combo-bonus').textContent = bonus > 1 ? `配当 ×${bonus.toFixed(1)}` : '';
+  $('bet-row').innerHTML = BETS.map(b =>
+    `<button data-b="${b}" class="${b === bet ? 'active' : ''}">${b}</button>`).join('');
+  $('bet-row').querySelectorAll('button').forEach(btn =>
+    btn.onclick = () => { if (!spinning) { bet = +btn.dataset.b; renderAll(); } });
+  $('spin').disabled = spinning || state.coins < bet;
+  renderPaytable(); renderCollection();
+  if (!spinning && state.coins < BETS[0] && !state.spins) {
+    say('コインがありません。購入で補充しよう', 'near');
+  }
+}
+function renderPaytable() {
+  $('paytable').innerHTML =
+    `<div class="rar-MYTHIC"><span>${SYMBOLS[7].ch}${SYMBOLS[7].ch}${SYMBOLS[7].ch} 竜神</span><b>JACKPOT</b></div>` +
+    SYMBOLS.slice(0, 7).reverse().map(s =>
+      `<div class="rar-${s.rar}"><span>${s.ch}${s.ch}${s.ch} ${s.name}</span><b>×${s.x3}</b></div>`).join('') +
+    `<div><span>同じ絵柄2つ</span><b>×1</b></div>`;
+}
+function renderCollection() {
+  const n = SYMBOLS.filter(s => state.owned[s.id]).length;
+  $('col-count').textContent = `${n}/${SYMBOLS.length}`;
+  $('col-bar').style.width = `${(n / SYMBOLS.length) * 100}%`;
+  $('collection').innerHTML = SYMBOLS.map(s =>
+    `<div class="slot-item ${s.rar} ${state.owned[s.id] ? '' : 'locked'}" title="${state.owned[s.id] ? s.name + '(' + s.rar + ')' : '???'}">${s.ch}</div>`).join('');
+}
+function comboBonus() { return 1 + Math.min(state.combo, 10) * 0.1; }
+
+function log(html) {
+  const el = document.createElement('div'); el.innerHTML = html;
+  $('log').prepend(el);
+  while ($('log').children.length > 30) $('log').lastChild.remove();
+}
+function say(text, cls = '') { const m = $('message'); m.textContent = text; m.className = 'message ' + cls; }
+function toast(t) {
+  const el = $('toast'); el.textContent = t; el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function confetti(n = 60) {
+  const box = $('confetti'); const cols = ['#ffcf4a', '#ff4a6b', '#2ee6c4', '#5b8cff', '#b06bff'];
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i');
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = cols[i % cols.length];
+    p.style.animationDuration = (1.6 + Math.random() * 1.6) + 's';
+    p.style.animationDelay = (Math.random() * .4) + 's';
+    box.appendChild(p); setTimeout(() => p.remove(), 3800);
+  }
+}
+
+/* ========== 効果音(WebAudio) ========== */
+let ac;
+function beep(freq, dur = .1, type = 'sine', vol = .06) {
+  if (!sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = vol;
+    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + dur);
+  } catch {}
+}
+function fanfare(big) {
+  const notes = big ? [523, 659, 784, 1047, 1319] : [523, 659, 784];
+  notes.forEach((f, i) => setTimeout(() => beep(f, .18, 'triangle', .08), i * 110));
+}
+
+/* ========== スピン ========== */
+async function doSpin() {
+  if (spinning || state.coins < bet) return;
+  spinning = true;
+  state.coins -= bet;
+  state.jackpot += bet * JP_RATE;
+  state.spins++;
+  renderAll(); $('reels').classList.remove('win');
+  say('回転中…');
+  beep(200, .15, 'sawtooth');
+
+  const r = [pick(), pick(), pick()];
+  await Promise.all([spinReel(0, r[0], 900), spinReel(1, r[1], 1300), spinReel(2, r[2], 1800)]);
+
+  const j = judge(r[0], r[1], r[2], bet);
+  for (const s of r) if (!state.owned[s.id]) { state.owned[s.id] = 1; toast(`図鑑に登録!${s.ch} ${s.name}(${s.rar})`); }
+
+  if (j.type === 'jackpot') {
+    const win = Math.floor(state.jackpot);
+    state.coins += win; state.jackpot = JP_BASE; state.combo++;
+    say(`👑 JACKPOT!!! +${win.toLocaleString()} コイン 👑`, 'big');
+    $('reels').classList.add('win'); confetti(160); fanfare(true);
+    log(`<b>JACKPOT</b> +${win.toLocaleString()}`);
+  } else if (j.type === 'three') {
+    const win = Math.floor(bet * j.mult * comboBonus());
+    state.coins += win; state.combo++;
+    say(`${j.sym.ch} 3つ揃い! +${win.toLocaleString()} コイン`, 'big');
+    $('reels').classList.add('win'); confetti(70); fanfare(true);
+    log(`${j.sym.ch}×3 <b>+${win.toLocaleString()}</b>`);
+  } else if (j.type === 'two') {
+    const win = Math.floor(bet * comboBonus());
+    state.coins += win; state.combo++;
+    say(`2つ揃い!+${win.toLocaleString()} コイン`); fanfare(false);
+    log(`2つ揃い +${win.toLocaleString()}`);
+  } else {
+    if (nearMiss(...r)) { say('惜しい!あと1つ…!', 'near'); $('reels').classList.add('shake'); setTimeout(() => $('reels').classList.remove('shake'), 500); }
+    else { say('ハズレ… もう一回!'); state.combo = 0; }
+    log(`ハズレ -${bet}`);
+    beep(140, .25, 'sawtooth');
+  }
+  state.best = Math.max(state.best, state.combo);
+  save(); spinning = false; renderAll();
+  if (state.coins < bet && state.coins < BETS[0]) say('コイン切れ!購入で補充しよう', 'near');
+}
+
+/* ========== KaroPay 決済 ========== */
+const apiBaseInput = $('api-base'), codeInput = $('receive-code'), shopStatus = $('shop-status');
+apiBaseInput.value = localStorage.getItem('ryugu.apiBase') || DEFAULT_API;
+codeInput.value = localStorage.getItem('ryugu.receiveCode') || '';
+
+function cleanApiBase() { return (apiBaseInput.value.trim() || DEFAULT_API).replace(/\/+$/, ''); }
+function shopMsg(t, tone = '') { shopStatus.textContent = t; shopStatus.className = 'status ' + tone; }
+function errMsg(e) {
+  if (e === 'CODE_NOT_FOUND') return 'サイト用コードが無効です';
+  if (e === 'INVALID_AMOUNT') return '金額が無効です';
+  if (e === 'RATE_LIMITED') return '少し待ってからもう一度試してください';
+  return '支払いページを作成できませんでした';
+}
+
+$('packs').innerHTML = PACKS.map(p => `
+  <div class="pack">
+    <div><strong>🪙 ${p.coins.toLocaleString()} コイン</strong>
+      <small>${p.label} <span class="badge">${p.note}</span> ・ 単価 $${(p.amount / p.coins).toFixed(2)}/コイン</small></div>
+    <button class="btn" data-pack="${p.id}">$${p.amount.toLocaleString()}</button>
+  </div>`).join('');
+$('packs').querySelectorAll('button').forEach(b => b.onclick = () => buyPack(PACKS.find(p => p.id === b.dataset.pack), b));
+
+async function buyPack(pack, btn) {
+  const receiveCode = codeInput.value.trim();
+  if (!receiveCode) { shopMsg('サイト用コードを入力してください', 'error'); codeInput.focus(); return; }
+  localStorage.setItem('ryugu.apiBase', cleanApiBase());
+  localStorage.setItem('ryugu.receiveCode', receiveCode);
+  const old = btn.textContent; btn.disabled = true; btn.textContent = '作成中';
+  shopMsg(`${pack.coins.toLocaleString()}コインの支払いページを作成中…`, 'ready');
+  try {
+    const here = location.origin + location.pathname;
+    const res = await fetch(`${cleanApiBase()}/api/checkout/public/sessions`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiveCode, amount: pack.amount,
+        description: `竜宮スロット コイン ${pack.coins}`,
+        clientReferenceId: `${pack.id}-${Date.now()}`,
+        successUrl: here, cancelUrl: here
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'CHECKOUT_FAILED');
+    sessionStorage.setItem('ryugu.pending', JSON.stringify({ pack, apiBase: cleanApiBase() }));
+    location.href = data.url;
+  } catch (e) {
+    shopMsg(errMsg(e.message), 'error'); btn.disabled = false; btn.textContent = old;
+  }
+}
+
+/* 決済から戻ってきたときの確認とコイン付与(二重付与防止つき) */
+async function verifyReturn() {
+  const sid = new URLSearchParams(location.search).get('checkout_session_id');
+  if (!sid) return;
+  history.replaceState(null, '', location.pathname);
+  let pending = null;
+  try { pending = JSON.parse(sessionStorage.getItem('ryugu.pending') || 'null'); } catch {}
+  if (!pending) { toast('購入情報が見つかりませんでした'); return; }
+  if (state.credited[sid]) { toast('この購入は反映済みです'); return; }
+  try {
+    const res = await fetch(`${pending.apiBase}/api/checkout/public/sessions/${encodeURIComponent(sid)}`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error('VERIFY_FAILED');
+    const s = data.checkoutSession;
+    if (s.status === 'paid' && Number(s.amount) === Number(pending.pack.amount)) {
+      state.credited[sid] = 1;
+      state.coins += pending.pack.coins;
+      sessionStorage.removeItem('ryugu.pending');
+      save(); renderAll();
+      toast(`🪙 +${pending.pack.coins.toLocaleString()} コインを受け取りました`);
+      confetti(80); fanfare(true);
+    } else {
+      toast('支払いを確認できませんでした');
+    }
+  } catch { toast('KaroPayへ接続できませんでした'); }
+}
+
+/* ========== 換金申請 ========== */
+// このブラウザ固有のプレイヤーID(端末をまたぐと別扱いになります)
+let playerId = localStorage.getItem('ryugu.playerId');
+if (!playerId) { playerId = 'p-' + Math.random().toString(36).slice(2, 10); localStorage.setItem('ryugu.playerId', playerId); }
+
+function genCashoutCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const part = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `RG-${part()}-${part()}`;
+}
+function cashoutMsg(t, tone = '') { $('cashout-status').textContent = t; $('cashout-status').className = 'status ' + tone; }
+
+async function loadCashoutIndex() {
+  try {
+    const r = await window.storage.get('cashout:index', true);
+    return r ? JSON.parse(r.value) : [];
+  } catch { return []; }
+}
+async function saveCashoutIndex(list) {
+  await window.storage.set('cashout:index', JSON.stringify(list), true);
+}
+
+async function renderCashoutLog() {
+  $('cashout-balance').textContent = state.coins.toLocaleString();
+  $('cashout-rate-label').textContent = CASHOUT_RATE;
+  const all = await loadCashoutIndex();
+  const mine = all.filter(r => r.playerId === playerId).sort((a, b) => b.ts - a.ts);
+  $('cashout-log').innerHTML = mine.length ? mine.map(r => `
+    <div><b>${r.code}</b> — ${r.coins.toLocaleString()}コイン(≈$${(r.coins * CASHOUT_RATE).toLocaleString()}) — ${r.mcName}
+      — ${r.status === 'done' ? '✅処理済み' : '⏳未処理'} — ${new Date(r.ts).toLocaleString()}</div>
+  `).join('') : '<div>まだ申請はありません</div>';
+}
+function updateCashoutPreview() {
+  const amount = Math.floor(Number($('cashout-amount').value));
+  $('cashout-preview').textContent = amount > 0 ? `≈ $${(amount * CASHOUT_RATE).toLocaleString()} 相当のカロ$` : '';
+}
+$('cashout-amount').oninput = updateCashoutPreview;
+
+$('btn-cashout').onclick = () => { $('cashout-modal').classList.add('open'); renderCashoutLog(); updateCashoutPreview(); };
+$('cashout-close').onclick = () => $('cashout-modal').classList.remove('open');
+$('cashout-modal').onclick = e => { if (e.target.id === 'cashout-modal') $('cashout-modal').classList.remove('open'); };
+
+$('cashout-submit').onclick = async () => {
+  const amount = Math.floor(Number($('cashout-amount').value));
+  const mcName = $('cashout-name').value.trim();
+  if (!mcName) { cashoutMsg('Minecraft名を入力してください', 'error'); return; }
+  if (!amount || amount < 1) { cashoutMsg('コイン数を正しく入力してください', 'error'); return; }
+  if (amount > state.coins) { cashoutMsg('所持コインが足りません', 'error'); return; }
+
+  const btn = $('cashout-submit'); btn.disabled = true; btn.textContent = '申請中…';
+  try {
+    state.coins -= amount; save(); renderAll();
+    const record = {
+      code: genCashoutCode(), playerId, mcName, coins: amount,
+      valueUsd: amount * CASHOUT_RATE, rate: CASHOUT_RATE,
+      status: 'pending', ts: Date.now()
+    };
+    const list = await loadCashoutIndex();
+    list.push(record);
+    await saveCashoutIndex(list);
+    cashoutMsg(`申請完了!コード: ${record.code} / 約$${record.valueUsd.toLocaleString()}相当(運営に処理されるまでお待ちください)`, 'ready');
+    $('cashout-amount').value = ''; updateCashoutPreview();
+    toast(`💱 換金申請を送りました: ${record.code}`);
+    renderCashoutLog();
+  } catch {
+    state.coins += amount; save(); renderAll();
+    cashoutMsg('申請に失敗しました。もう一度お試しください', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '申請してコードを発行';
+  }
+};
+
+/* ========== 管理画面(?admin=1) ========== */
+async function renderAdminLog() {
+  const all = (await loadCashoutIndex()).sort((a, b) => b.ts - a.ts);
+  $('admin-log').innerHTML = all.length ? all.map(r => `
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line)">
+      <span><b>${r.code}</b> ${r.coins.toLocaleString()}コイン ≈ <b>$${(r.valueUsd ?? r.coins * CASHOUT_RATE).toLocaleString()}</b> → ${r.mcName}
+        <br><small style="color:var(--muted)">${new Date(r.ts).toLocaleString()} / ${r.status === 'done' ? '✅処理済み' : '⏳未処理'}</small></span>
+      ${r.status === 'done' ? '' : `<button class="btn" data-code="${r.code}">処理済みにする</button>`}
+    </div>
+  `).join('') : '<div>申請はまだありません</div>';
+  $('admin-log').querySelectorAll('button[data-code]').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = '更新中…';
+    // 直前に再取得してから1件だけ更新することで、同時操作による上書き事故を減らす
+    const list = await loadCashoutIndex();
+    const rec = list.find(r => r.code === b.dataset.code);
+    if (rec && rec.status !== 'done') { rec.status = 'done'; rec.doneTs = Date.now(); await saveCashoutIndex(list); }
+    renderAdminLog();
+  });
+}
+if (new URLSearchParams(location.search).get('admin') === '1') {
+  $('admin-modal').classList.add('open');
+  renderAdminLog();
+}
+$('admin-close').onclick = () => $('admin-modal').classList.remove('open');
+$('admin-refresh').onclick = renderAdminLog;
+
+/* ========== UI 配線 ========== */
+$('btn-shop').onclick = () => $('shop-modal').classList.add('open');
+$('shop-close').onclick = () => $('shop-modal').classList.remove('open');
+$('shop-modal').onclick = e => { if (e.target.id === 'shop-modal') $('shop-modal').classList.remove('open'); };
+setInterval(() => { if (!spinning) renderRescue(); }, 30000);
+$('spin').onclick = doSpin;
+$('btn-sound').onclick = () => { sound = !sound; $('btn-sound').textContent = sound ? '🔊 ON' : '🔇 OFF'; };
+document.addEventListener('keydown', e => { if (e.code === 'Space' && !$('shop-modal').classList.contains('open')) { e.preventDefault(); doSpin(); } });
+
+initReels(); renderAll(); verifyReturn();
+</script>
+</body>
+</html>
